@@ -1976,7 +1976,7 @@ var TESTS: Test[] = [
         optional: true,
         repeat: false,
         partial: false,
-        pattern: '[^\\/]+?'
+        pattern: '\\(|(?:(?!\\()[^\\/])+?'
       },
       ')'
     ],
