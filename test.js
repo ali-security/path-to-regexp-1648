@@ -2,6 +2,20 @@ var pathToRegExp = require('./');
 var assert = require('assert');
 
 describe('path-to-regexp', function () {
+  it('should generate a regex without backtracking', function () {
+    console.log(pathToRegExp('/:a-:b'));
+    assert.deepEqual(pathToRegExp('/:a-:b'), /^(?:\/([^/]+?))-(?:((?:(?!\/|-).)+?))\/?$/i);
+  });
+
+  // See: https://github.com/pillarjs/path-to-regexp/security/advisories/GHSA-37ch-88jc-xwx2
+  it('should generate a regex without backtracking for 3+ params', function () {
+    var re = pathToRegExp('/:a-:b-:c-:d');
+    var input = '/' + Array(4001).join('a-') + '/z';
+    var start = Date.now();
+    re.exec(input);
+    assert.ok(Date.now() - start < 1000, 'ReDoS: regex took too long');
+  });
+
   describe('strings', function () {
     it('should match simple paths', function () {
       var params = [];
@@ -764,6 +778,44 @@ describe('path-to-regexp', function () {
       assert.equal(m[3], 'path');
     });
   });
+
+  it('should match after a non-slash or format character', function () {
+    var params = [];
+    var re = pathToRegExp('/:x-:y', params);
+    var m;
+
+    assert.equal(params.length, 2);
+    assert.equal(params[0].name, 'x');
+    assert.equal(params[0].optional, false);
+    assert.equal(params[1].name, 'y');
+    assert.equal(params[1].optional, false);
+
+    m = re.exec('/1-2');
+
+    assert.equal(m.length, 3);
+    assert.equal(m[0], '/1-2');
+    assert.equal(m[1], '1');
+    assert.equal(m[2], '2');
+  });
+
+  it('should replace asterisk in capture group', function () {
+    var params = [];
+    var re = pathToRegExp('/files/:file(*)', params);
+    var m;
+
+    assert.equal(params.length, 2);
+    assert.equal(params[0].name, 'file');
+    assert.equal(params[0].optional, false);
+    assert.equal(params[1].name, 0);
+    assert.equal(params[1].optional, false);
+
+    m = re.exec('/files/test');
+
+    assert.equal(m.length, 3);
+    assert.equal(m[0], '/files/test');
+    assert.equal(m[1], 'test');
+    assert.equal(m[2], 'test');
+  })
 
   describe('regressions', function () {
     it('should work with strongloop/expressjs.com#417', function () {
